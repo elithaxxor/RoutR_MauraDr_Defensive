@@ -1,0 +1,484 @@
+[![coverage](https://img.shields.io/badge/coverage-unknown-lightgrey.svg)](coverage-report)
+# RoutR_MauraDr v2.1.0 - [Web Interface Added]
+
+
+NetVision is a Bash-based utility that automates network discovery, quick port scanning (with stealthy SYN scans and OS detection), and simple router analysis (including an attempt to detect router firmware). Additionally, it installs and starts **netcat** (on port 6666) and **ngrok** (TCP on port 6667, HTTP on port 80) for easy remote tunneling and local port listening.
+
+---
+
+
+🚀 Features
+
+🔍 Network Discovery
+	•	Detects Local IP, Router IP, WAN IP, Subnet, MAC, DNS servers
+	•	ARP Table scan with device hostname, MAC, and IP
+	•	DNS Table extraction via SNMP, UPnP, brute-force
+
+🔓 Router Analysis
+	•	Detects router make/model via login page scraping
+	•	Extracts router firmware via SNMP/UPnP/HTTP
+	•	Auto-SSH login attempts with default credentials
+
+🛡 Security Assessment
+	•	CVE database lookup for known firmware vulnerabilities (offline)
+	•	Stealthy port scan & OS detection via nmap
+	•	Integrates with OpenVAS/Nessus for deeper scans
+	•	Firmware update checker using cached vendor data
+        •       Certificate health checks for HTTPS services
+        •       Configuration baseline alerts for risky router settings
+        •       MITRE ATT&CK technique correlation
+
+🌐 Remote Tunneling
+	•	Starts netcat listener on port 6666
+	•	Launches ngrok tunnels (TCP 6667, HTTP 80)
+
+🧩 Extensible & Automated
+	•	Plugin-based scanning (drop files in plugins/)
+	•	JSON/TXT result exports for offline review
+	•	Simple GUI with Tkinter (web/src/gui.py)
+	•	Scan scheduling based on past results
+	•	Pushbullet alerts for critical events
+        •       GPU usage monitoring via nvidia-smi/rocm-smi
+
+🗂 Output Files
+	•	open_ports.json, quick_scan.txt, discovered_ips.json, etc.
+
+⸻
+
+🔁 Feature Flowchart
+```
+flowchart TD
+    Start([Start NetVision])
+    Config[Load config.yaml & config.ini]
+    NetInfo[Collect local network info]
+    ARPScan[Scan ARP table for LAN devices]
+    DNSDiscover[Discover DNS entries via SNMP/UPnP]
+    RouterID[Detect router make/model]
+    FirmwareDetect[Extract firmware version]
+    CVELookup[Match firmware to local CVE DB]
+    SSHBrute[Try default router SSH credentials]
+    NmapScan[Run Nmap SYN scan + OS detect]
+    NetcatStart[Start Netcat (port 6666)]
+    NgrokStart[Start Ngrok (TCP 6667, HTTP 80)]
+    Export[Export results (JSON, TXT)]
+    Notify[Push alerts if issues]
+    GUI[Optional: Launch Tkinter GUI]
+
+    Start --> Config --> NetInfo
+    NetInfo --> ARPScan --> DNSDiscover --> RouterID --> FirmwareDetect
+    FirmwareDetect --> CVELookup --> SSHBrute
+    CVELookup --> NmapScan --> NetcatStart --> NgrokStart
+    NgrokStart --> Export --> Notify --> GUI
+```
+
+⸻
+
+
+
+
+```classDiagram
+    class ScanGUI {
+        <<Tkinter GUI>>
+        -cidr_entry: tk.Entry
+        -log_box: scrolledtext.ScrolledText
+        +__init__()
+        +create_widgets()
+        +start_scan()
+        +run_scan(cidr: string)
+        +append_log(text: string)
+    }
+    note for ScanGUI "Inherits from tk.Tk"
+
+```
+
+
+
+
+
+
+
+
+
+## TODO: 
+```
+**Add auto-search** for firmware bugs and auto ssh with firmware default passwords
+**Automate CVE Dialation** --> I have the code and every single CVE known to man (legally obtained); so figure a way to isolate IoT CVEs from what I have, and then automate discovery, test, enum phase.
+**Plugin architecture** to easily extend scanning capabilities
+**Offline results export** so findings can be reviewed without network access
+```
+- Support plugin-based extensions for new scanners and output formats
+See `FEATURE_PROPOSAL.md` for a detailed roadmap of these planned improvements.
+
+## **Table of Contents**  
+1. [Features](#features)  
+2. [Requirements](#requirements)  
+3. [Installation](#installation)  
+4. [Usage](#usage)  
+5. [How It Works (Detailed)](#how-it-works-detailed)  
+   - [Firmware Detection](#firmware-detection)  
+   - [ARP Table & DNS Table Gathering](#arp-table--dns-table-gathering)  
+   - [Stealth Port Scan & OS Detection](#stealth-port-scan--os-detection)  
+   - [Ngrok & Netcat Setup](#ngrok--netcat-setup)  
+   - [Output Files & Logs](#output-files--logs)  
+6. [License](#license)  
+
+---
+
+## **Features** <a id="features"></a>  
+- **Local Network Data**
+  - Local IP, Router IP, WAN IP, DNS servers, Subnet mask, Router MAC, etc. (implemented in `web/src/network_info.py`)
+- **ARP Table Scan**  
+  - Resolves device IPs, MAC addresses, and hostnames on the local LAN.  
+- **Router DNS Table**  
+  - Attempts to discover local DNS entries via SNMP, UPnP, and brute force DNS queries.  
+- **Router Make & Model**  
+  - Scrapes the router’s login page for common brand keywords.  
+- **Router Firmware Detection**
+  - Tries SNMP (`snmpwalk`), HTTP scraping, and UPnP for firmware strings.
+- **Optional Firmware CVE Lookup**
+  - Uses an offline CVE database to search for vulnerabilities in detected firmware.
+- **Default Credential SSH Attempts**
+  - Tries common username/password pairs when enabled to identify weak router security (see `web/src/router_ssh.py`).
+- **Stealthy Quick Port Scan**
+  - Uses **nmap** for a SYN scan on **top 10 ports**, plus **OS detection** (requires `sudo`).
+  - Saves open ports to both `.txt` and `.json` for easy review via `web/src/quick_scan.py`.
+- **Netcat Listener**
+  - Listens on **port 6666** (handled by `web/src/net_services.py`).
+- **Ngrok Tunnels**
+  - **TCP** tunnel for port **6667**
+  - **HTTP** tunnel for port **80** (spawned via `web/src/net_services.py`)
+- **Plugin System**
+  - Drop new scanning modules into `plugins/` and they load automatically.
+- **Offline Results Export**
+  - Save scan data to a JSON file for later review.
+- **Desktop GUI**
+  - Launch `web/src/gui.py` for a basic Tkinter interface to run scans and view logs.
+- **Interactive Topology Map**
+  - Zoomable D3.js visualization of hosts and connections.
+- **External Scanner Integration**
+  - Optional hooks for OpenVAS and Nessus to perform deeper vulnerability analysis.
+- **Firmware Update Checks**
+  - Compare detected router firmware with cached vendor data and alert when updates exist.
+- **Adaptive Scan Scheduling**
+  - Integration with masscan, arp-scan, hydra, gvm-cli, miniupnpc, nikto, sqlmap, and pgrok via a unified tool dispatcher.
+  - Schedule recurring scans that adjust frequency based on previous scores.
+- **Mobile Notifications**
+  - Push critical alerts via Pushbullet when configured.
+
+- **Shodan Integration**
+  - Import scan data from the Shodan API when a key is provided.
+- **Wigle Wi-Fi Lookup**
+  - Query Wigle's API to correlate router MAC addresses with nearby wireless networks.
+
+
+- **Third-Party Scan Import**
+  - Import results from Shodan or Censys to correlate with local findings.
+- **Role-Based API Tokens**
+  - Provide fine-grained permissions for automation scripts.
+- **Centralized Result Dashboard**
+  - Aggregate scans from multiple installations into a single view.
+- **IPv6 Support**
+  - Extend discovery and enumeration to cover IPv6 networks.
+- **Plugin Marketplace**
+  - Allow users to share and install community plugins securely.
+- **Mobile App Companion**
+  - Deliver alerts and summaries directly to Android/iOS devices.
+
+### Recent Feature Additions
+- **Automated Dependency Updates**
+  - Check for outdated Python packages and plugins via CLI or API.
+- **Enhanced Report Generation**
+  - Export scan summaries to HTML and PDF and schedule email delivery.
+- **802.11 Wireless Scanning**
+  - Map nearby Wi-Fi networks and optionally capture handshakes.
+- **PMKID Capture via hcxdumptool**
+  - Collect WPA hashes for offline cracking.
+- **Container Security Auditing**
+  - Scan container images for vulnerabilities and risky configurations.
+- **Network Inventory Integration**
+  - Import external device data to enrich scan results.
+- **Real-Time Market Data Streaming**
+  - Display exchange data live via WebSockets on the dashboard.
+- **Historical Backtesting Engine**
+  - Replay saved data sets to evaluate scanning or trading strategies.
+- **Portfolio Tracking**
+  - Monitor holdings and profit/loss alongside scan insights.
+- **iCloud Sync & Auto Update**
+  - Sync preferences across macOS devices and notify on new releases.
+
+
+
+
+---
+
+## **Requirements** <a id="requirements"></a>  
+- **Bash** (most Linux/Unix-based systems have it by default).  
+- **curl**, **wget**, or **apt-get/yum** for automatic installation (optional but recommended).  
+- **sudo/root** privileges to:
+  - Install packages.  
+  - Run stealth scans (SYN) and OS detection reliably.  
+  - Listen on privileged ports if needed (80).  
+- **Internet Connection** for:
+  - WAN IP detection.  
+  - Downloading `ngrok` if not already installed.  
+
+---
+
+## **Installation** <a id="installation"></a>  
+1. **Download** or **Clone** this repository to your local machine.
+2. 
+## [INSTALLATION - UPDATE]
+### **Updated Section for the README**
+
+---
+
+## **Configuration Setup** <a id="configuration-setup"></a>
+
+Before running the program, ensure that you have set up the necessary configuration files. The application uses `config.ini`, `config.yaml`, and `config.json`.
+
+### **Steps to Configure**
+
+1. **Locate the Config Files**:
+   - `config.ini`, `config.yaml`, and `config.json` are all located in the `web` directory.
+
+2. **Edit the Config Files**:
+   - Open the files in a text editor of your choice and update the following variables:
+
+   **In `config.ini`**:
+   ```ini
+   [jwt]
+   secret_key = your-secret-key  # Replace 'your-secret-key' with a strong, secure key
+   ```
+
+   **In `config.yaml`**:
+   ```yaml
+   jwt:
+     secret_key: "your-secret-key"  # Replace 'your-secret-key' with a strong, secure key
+   ```
+
+   **In `config.json`**:
+   ```json
+   {
+       "shodan_api_key": "your-shodan-key",
+       "wigle": {"username": "user", "password": "pass"}
+   }
+   ```
+
+3. **Variables to Adjust**:
+4. 
+   - **JWT Secret Key**:
+     - Found in both `config.ini` and `config.yaml`.
+     - This must be a strong, unique key used for signing and verifying JWT tokens.
+   - **Database Path**:
+     - In `config.ini`, ensure the `path` under `[database]` points to the correct database file (default: `smb_enum.db`).
+   - **Network CIDR**:
+     - In `config.yaml`, update the `default_cidr` under `network` if your network's IP range differs from the default (`192.168.1.0/24`).
+   - **Shodan API Key**:
+
+     - In `config.json`, set `shodan_api_key` if you want to import results from Shodan.
+   - **Wigle Credentials**:
+     - In `config.json`, provide your Wigle `username` and `password` under the `wigle` section.
+
+     - In `config.json`, set `shodan_api_key` to your personal API token to enable third-party scan imports.
+
+
+5. **Save Changes**:
+6. 
+   - After editing, save the files and ensure they remain in the `web` directory.
+
+### **Important Reminders**:
+
+- **JWT Secret Key**:
+  - This key is critical for securing your application. Never use the default key in a production environment.
+  - 
+- **Environment-Specific Configurations**:
+  - If deploying in different environments (e.g., development, testing, production), consider creating separate config files for each environment.
+  - 
+3. **Make the script executable**:  
+   ```bash
+   chmod +x netvision.sh
+   ```
+4. (Optional) **Place** it in a directory within your `$PATH`, e.g.:  
+   ```bash
+   sudo mv netvision.sh /usr/local/bin/netvision
+   sudo chmod +x /usr/local/bin/netvision
+   ```
+
+---
+
+## **Usage** <a id="usage"></a>  
+
+
+
+---
+
+### **Example Commands**
+After setting up the configuration files, you can run the application as follows:
+
+```bash
+python3 web/server/run.py
+```
+
+Ensure all dependencies are installed by running:
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+1. **Run** the script (ideally with `sudo` for best results):  
+   ```bash
+   sudo ./netvision.sh
+   ```
+   or, if moved into `$PATH`:
+   ```bash
+   sudo netvision
+   ```
+2. **Watch** the console output as NetVision:  
+   - Installs missing dependencies (SNMP, nmap, netcat, miniupnpc, etc.)  
+   - Displays local network info (IP, DNS, router details, etc.)  
+   - Performs an **ARP table scan** and a **router DNS table scan**.  
+   - Runs a **quick stealth port scan** on the router (top 10 ports), trying to detect the OS.  
+   - **Starts** netcat on **port 6666** and spawns **ngrok** tunnels (TCP on 6667, HTTP on 80).  
+
+### Command Line Interface
+Run individual scans or external API queries:
+```bash
+python3 -m web.src.cli scan 192.168.1.0/24 --intensity medium
+python3 -m web.src.cli shodan-search "apache"
+```
+
+### Enumeration with Certificate and Baseline Checks
+
+Running a scan through the CLI automatically performs HTTPS certificate
+validation and compares the results against the configuration baseline.
+To generate a full report with these checks enabled run:
+
+```bash
+python3 -m web.src.cli scan 192.168.1.0/24 --intensity high > scan_results.json
+```
+
+Each host entry in `scan_results.json` will include a `certificate` section
+describing expiry and hostname matching along with any `baseline_alerts`
+highlighting risky open management ports.
+
+### Viewing the Topology Map
+
+The Tkinter GUI provides a quick way to view the network topology. Launch it
+with:
+
+```bash
+python3 web/src/gui.py
+```
+
+After a scan finishes click **Show Map** to open an interactive D3.js view of
+the discovered hosts.
+
+To export the map directly from the CLI you can use the helper functions in
+`web.src.network_map`:
+
+```bash
+python3 - <<'EOF'
+from web.src.network_map import build_topology, export_d3_html
+hosts = ['192.168.1.2']
+graph = build_topology(hosts, router_ip='192.168.1.1')
+export_d3_html(graph, 'topology.html')
+EOF
+```
+
+Open `topology.html` in your browser to explore the network graph.
+
+---
+
+## **How It Works (Detailed)** <a id="how-it-works-detailed"></a>
+
+### **Firmware Detection** <a id="firmware-detection"></a>  
+NetVision tries to detect the router’s firmware version in the following order:
+
+1. **SNMP** (if enabled on the router):  
+   - It runs `snmpwalk -v2c -c public <router_ip> 1.3.6.1.2.1.1.1.0` to see if a firmware string is exposed in the system description OID.  
+2. **HTTP**:  
+   - It makes a `curl` request to `http://<router_ip>` and searches for a text pattern like **“Firmware Version”**.  
+3. **UPnP**:  
+   - If available, it runs `upnpc -l` to see if the router exposes a firmware string in UPnP device descriptions.  
+4. **Fallback**:  
+   - If none of the above yield a match, NetVision prints `Unknown (Check router web interface manually)`.
+
+> **Note**: Consumer routers are **inconsistent** in how (or if) they expose firmware details. This step often fails on locked-down or custom routers.  
+
+---
+
+### **ARP Table & DNS Table Gathering** <a id="arp-table--dns-table-gathering"></a>  
+- **ARP Table**:  
+  - Runs `arp -a` to list discovered devices, extracts IP and MAC, attempts to resolve hostnames via `nslookup`, and prints them in a neat table.  
+  - Results are **optionally** saved to `discovered_ips.txt` / `.json`.  
+- **Router DNS Table**:  
+  - Uses SNMP, UPnP, and a **DNS brute force** approach (with `nslookup`) to look for local DNS records the router might know about.  
+  - Very dependent on the router’s capabilities and can be **hit or miss**.
+
+---
+
+### **Stealth Port Scan & OS Detection** <a id="stealth-port-scan--os-detection"></a>  
+- **Nmap**:  
+  - NetVision uses `sudo nmap -sS -n --top-ports 10 -O --osscan-limit --osscan-guess` to scan the router IP (or any target).  
+  - **SYN Stealth Scan (`-sS`)** sends SYN packets without completing TCP handshakes, which is often less conspicuous.  
+  - **OS Detection (`-O`)** tries to guess the remote operating system.  
+    - This step can be **inconclusive** if the router has few open ports or unusual TCP behavior.  
+  - Writes raw scan output (including potential OS guess) to `quick_scan.txt`.  
+  - Parses open ports to `open_ports.txt` and `open_ports.json`.
+
+---
+
+### **Ngrok & Netcat Setup** <a id="ngrok--netcat-setup"></a>  
+1. **Netcat**:  
+   - Listens in the background on **TCP port 6666**.  
+   - You can manually connect to it (e.g., `nc <ip> 6666`) for testing.  
+2. **Ngrok**:  
+   - **Downloads** if not found, then runs two separate processes in the background:  
+     - **`ngrok tcp 6667`**: Creates a publicly accessible TCP tunnel to your local machine’s **port 6667**.  
+     - **`ngrok http 80`**: Creates a publicly accessible HTTP tunnel to your local machine’s **port 80**.  
+   - If you have a web server on port 80, you may need to stop it, or change ports to avoid conflicts.  
+   - For a stable, authenticated tunnel, add your **ngrok auth token** in the script’s commented section.  
+
+---
+
+### **Output Files & Logs** <a id="output-files--logs"></a>  
+
+1. **`quick_scan.txt`**  
+   - Contains the raw output of the Nmap top-ports scan with OS detection, plus any notes about ping success/failure.
+2. **`open_ports.txt`** / **`open_ports.json`**  
+   - Lists the open TCP ports discovered among the top 10.  
+   - The JSON file uses the format:
+     ```json
+     [
+       { "port": "22" },
+       { "port": "80" }
+     ]
+     ```
+3. **`discovered_ips.txt`** / **`discovered_ips.json`**  
+   - From the ARP table parsing, each IP discovered is stored in both text and JSON.  
+4. **`router_dns_table.txt`** / **`router_dns_table.json`**  
+   - Attempts to summarize local DNS entries your router may know.  
+5. **`router_dns_table.txt`**, **`router_dns_table.json`**  
+   - Summarize any found local DNS mappings via SNMP, UPnP, or fallback DNS brute force.
+
+---
+
+
+### Running Tests
+
+Use the provided `runtests.sh` script to run the basic unit tests:
+
+```bash
+./runtests.sh
+```
+
+The tests currently verify that the plugin loader works correctly. More tests will be added as the project grows.
+
+---
+
+The primary README file for the `RoutR_MauraDr` project has been located. I will now write a section to update the end user with the new installation and configuration instructions, including reminders about filling in critical variables like the JWT secret key.
+
+---
+**Enjoy exploring and testing your network with NetVision!** For questions or suggestions, feel free to open an issue or send a pull request.  

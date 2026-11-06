@@ -1,0 +1,15 @@
+flask
+flask-restx
+flask-jwt-extended
+impacket
+pandas
+matplotlib
+networkx
+jinja2
+requests
+werkzeug
+cryptography
+pyOpenSSL
+miniupnpc
+pgrok
+coverage

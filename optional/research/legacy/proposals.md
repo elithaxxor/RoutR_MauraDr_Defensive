@@ -1,0 +1,14 @@
+# Future Feature Proposals
+- Package RoutR_MauraDr for PyPI distribution and provide wheels via GitHub Actions.
+- Implement scheduled scan profiles stored in JSON.
+- Centralized reporting server with result aggregation.
+- Auto-update vulnerability databases via `routR update-db`.
+- Plugin testing harness to validate new plugins.
+- Support AppImage packaging for easier Linux distribution.
+- Add GPU monitoring dashboard to visualize hashcat workload.
+- Integrate Zeek for automated pcap analysis with alerting.
+- hcxdumptool integration for PMKID collection and automated hashcat cracking.
+- Real-time security event timeline with WebSocket updates.
+- QR code generation for securely sharing captured Wi-Fi credentials.
+- Extend certificate health checks with OCSP validation.
+- Add interactive topology map into the Flask dashboard using D3.js.
