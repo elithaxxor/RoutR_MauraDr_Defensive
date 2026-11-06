@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "routr-mauradr"
+version = "0.1.0.dev0"
+description = "Defensive inventory and baseline checks for authorized networks / own systems only."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.9", "build>=1", "pip-audit>=2"]
+research = ["impacket", "pgrok"]
+
+[project.scripts]
+routr-audit = "routr_mauradr.cli:main"
+
+[project.urls]
+Repository = "https://github.com/elithaxxor/RoutR_MauraDr_Defensive"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["routr_mauradr", "routr_mauradr.*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "S", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers"
