@@ -14,10 +14,13 @@ Implemented and tested:
 - `discover` and `tls check` refuse to run unless both `--authorized` and `--scope` are set.
 - The scope file is TOML. Targets must be IP CIDRs or IP literals. Hostnames are rejected. Host count, concurrency, timeout, and rate have hard ceilings.
 - An in-scope target is validated and the command then exits 2. The probe itself is not implemented yet, and no socket is opened.
-- Named offline commands (`inventory`, `firmware`, `cve`, `baseline`, `topology`, `export`) exit 2 and do not connect.
+- `inventory import` and `inventory list` use a local SQLite file. Addresses must be IP literals. Secret fields are rejected. The database is created mode 0600. No network connection is made.
+- `firmware`, `cve`, `baseline`, `topology`, and `export` still exit 2 and do not connect.
 
 ```bash
 routr-audit --authorized --scope examples/scope.example.toml discover 192.168.56.0/28
+routr-audit --db audit.db inventory import examples/assets.example.json
+routr-audit --db audit.db inventory list
 ```
 
 Use that example range only if it belongs to a network you own or may assess.

@@ -1,25 +1,26 @@
 # Authorized networks / own systems ONLY.
 # Network commands validate scope and then stop. They do not open sockets.
-# This module never imports optional research material.
+# Inventory is a local file operation. This module never imports research material.
 """Command-line entry point for the defensive auditor.
 
 --help and offline commands make no network connections.
 discover and tls check require both --authorized and --scope.
-Those commands only validate the scope in this slice; they do not connect.
+Those commands only validate the scope; they do not connect.
 """
 
 from __future__ import annotations
 
+import json
 import sys
 from argparse import ArgumentParser, Namespace
 from collections.abc import Sequence
+from pathlib import Path
 
+from .inventory import InventoryError, import_assets, list_assets
 from .scope import ScopeError, authorize_scope, expand_scoped_cidr, resolve_scoped_target
 
 _NETWORK_COMMANDS = frozenset({"discover", "tls"})
-_OFFLINE_COMMANDS = frozenset(
-    {"inventory", "firmware", "cve", "baseline", "topology", "export"}
-)
+_OFFLINE_STUBS = frozenset({"firmware", "cve", "baseline", "topology", "export"})
 
 
 def build_parser() -> ArgumentParser:
@@ -50,8 +51,14 @@ def build_parser() -> ArgumentParser:
     check.add_argument("target", help="IP literal and port, for example 192.168.56.10:443")
     check.add_argument("--server-name", default=None, help="Expected certificate hostname")
 
-    for name in sorted(_OFFLINE_COMMANDS):
-        commands.add_parser(name, help="Offline command (not implemented in this slice)")
+    inventory = commands.add_parser("inventory", help="Local asset inventory")
+    inventory_commands = inventory.add_subparsers(dest="inventory_command")
+    import_command = inventory_commands.add_parser("import", help="Import assets from JSON")
+    import_command.add_argument("assets_json", help="Operator-supplied asset file")
+    inventory_commands.add_parser("list", help="Print stored assets as JSON")
+
+    for name in sorted(_OFFLINE_STUBS):
+        commands.add_parser(name, help="Offline command (not implemented yet)")
 
     return parser
 
@@ -77,11 +84,33 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     if command in _NETWORK_COMMANDS:
         return _network_command(args)
-    if command in _OFFLINE_COMMANDS:
+    if command == "inventory":
+        return _inventory_command(args)
+    if command in _OFFLINE_STUBS:
         print(f"error: {command} is not implemented", file=sys.stderr)
         return 2
     print(f"error: unknown command {command}", file=sys.stderr)
     return 2
+
+
+def _inventory_command(args: Namespace) -> int:
+    action = args.inventory_command
+    if action not in {"import", "list"}:
+        print("error: usage: routr-audit --db FILE inventory import|list", file=sys.stderr)
+        return 2
+    if not args.db:
+        print("error: --db FILE is required for inventory", file=sys.stderr)
+        return 2
+    try:
+        if action == "import":
+            count = import_assets(Path(args.db), Path(args.assets_json))
+            print(f"imported {count} assets")
+            return 0
+        print(json.dumps(list_assets(Path(args.db)), indent=2))
+    except InventoryError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    return 0
 
 
 def _network_command(args: Namespace) -> int:

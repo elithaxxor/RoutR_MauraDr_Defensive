@@ -1,0 +1,12 @@
+{
+  "assets": [
+    {
+      "asset_id": "sw1",
+      "address": "192.168.56.10",
+      "name": "lab-switch",
+      "vendor": "example",
+      "product": "switch",
+      "role": "access"
+    }
+  ]
+}
