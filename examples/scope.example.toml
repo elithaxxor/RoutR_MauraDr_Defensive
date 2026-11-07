@@ -1,0 +1,8 @@
+# Illustrative lab scope. Use only if these addresses belong to a network
+# you own or have explicit permission to assess.
+allow_cidrs = ["192.168.56.0/28"]
+allow_ports = [443]
+max_hosts = 16
+max_concurrency = 4
+timeout_seconds = 3
+max_rate_per_second = 5
