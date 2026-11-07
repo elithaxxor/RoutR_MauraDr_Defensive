@@ -50,6 +50,15 @@ There is no default network. Installation, imports, help, and offline commands m
 Python 3.11 or newer. Defensive core uses the standard library.
 
 ```bash
+./build.sh
+.venv/bin/routr-audit --help
+```
+
+`./build.sh` creates `.venv`, builds a wheel and sdist in `dist/`, checks that the research tree is not packaged, and installs the wheel. It does not install the research extra. `./build.sh --test` also runs the unit tests.
+
+Or install into the current environment:
+
+```bash
 python -m pip install .
 routr-audit --help
 ```
