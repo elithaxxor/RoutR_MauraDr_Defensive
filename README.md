@@ -15,13 +15,17 @@ Implemented and tested:
 - The scope file is TOML. Targets must be IP CIDRs or IP literals. Hostnames are rejected. Host count, concurrency, timeout, and rate have hard ceilings.
 - An in-scope target is validated and the command then exits 2. The probe itself is not implemented yet, and no socket is opened.
 - `inventory import` and `inventory list` use a local SQLite file. Addresses must be IP literals. Secret fields are rejected. The database is created mode 0600. No network connection is made.
+- `routr-audit gui` serves a loopback-only page for inventory import/list and scope validation. It does not connect to devices, and it refuses paths inside `optional/research/`.
 - `firmware`, `cve`, `baseline`, `topology`, and `export` still exit 2 and do not connect.
 
 ```bash
 routr-audit --authorized --scope examples/scope.example.toml discover 192.168.56.0/28
 routr-audit --db audit.db inventory import examples/assets.example.json
 routr-audit --db audit.db inventory list
+routr-audit gui
 ```
+
+`routr-audit gui` listens on `http://127.0.0.1:8765/` only. Use `--listen` only with a loopback address.
 
 Use that example range only if it belongs to a network you own or may assess.
 

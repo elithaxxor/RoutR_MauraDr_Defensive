@@ -57,6 +57,10 @@ def build_parser() -> ArgumentParser:
     import_command.add_argument("assets_json", help="Operator-supplied asset file")
     inventory_commands.add_parser("list", help="Print stored assets as JSON")
 
+    gui = commands.add_parser("gui", help="Open the loopback defensive GUI")
+    gui.add_argument("--listen", default="127.0.0.1", help="Loopback address only")
+    gui.add_argument("--port", type=int, default=8765, help="Loopback port")
+
     for name in sorted(_OFFLINE_STUBS):
         commands.add_parser(name, help="Offline command (not implemented yet)")
 
@@ -86,6 +90,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _network_command(args)
     if command == "inventory":
         return _inventory_command(args)
+    if command == "gui":
+        return _gui_command(args)
     if command in _OFFLINE_STUBS:
         print(f"error: {command} is not implemented", file=sys.stderr)
         return 2
@@ -111,6 +117,16 @@ def _inventory_command(args: Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     return 0
+
+
+def _gui_command(args: Namespace) -> int:
+    from .gui import GuiError, serve
+
+    try:
+        return serve(host=str(args.listen), port=args.port)
+    except GuiError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
 
 def _network_command(args: Namespace) -> int:
