@@ -15,7 +15,7 @@ Implemented and tested:
 - The scope file is TOML. Targets must be IP CIDRs or IP literals. Hostnames are rejected. Host count, concurrency, timeout, and rate have hard ceilings.
 - An in-scope target is validated and the command then exits 2. The probe itself is not implemented yet, and no socket is opened.
 - `inventory import` and `inventory list` use a local SQLite file. Addresses must be IP literals. Secret fields are rejected. The database is created mode 0600. No network connection is made.
-- `routr-audit gui` serves a loopback-only page for inventory import/list and scope validation. It does not connect to devices, and it refuses paths inside `optional/research/`.
+- `routr-audit gui` serves a loopback-only page. It can import, add, remove, filter, and download inventory, store operator notes, and explain or check a scope file. It does not connect to devices, and it refuses paths inside `optional/research/`.
 - `firmware`, `cve`, `baseline`, `topology`, and `export` still exit 2 and do not connect.
 
 ```bash

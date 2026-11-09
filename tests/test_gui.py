@@ -11,10 +11,15 @@ import pytest
 from routr_mauradr import cli
 from routr_mauradr.gui import (
     GuiError,
+    add_note,
+    delete_one,
+    describe_scope,
+    export_inventory,
     import_inventory,
     list_inventory,
     make_server,
     require_loopback,
+    save_one,
     validate_discover,
     validate_tls,
 )
@@ -65,6 +70,36 @@ def test_scope_validation_does_not_connect(tmp_path: pathlib.Path) -> None:
     assert ok and "No device connection" in message
     ok, message = validate_tls(True, str(scope), "192.168.56.10:22")
     assert not ok and "port 22" in message
+
+
+def test_add_note_remove_and_export(tmp_path: pathlib.Path) -> None:
+    database = tmp_path / "audit.db"
+    ok, message = save_one(
+        str(database),
+        {"asset_id": "sw1", "address": "192.168.56.10", "name": "lab", "notes": ""},
+    )
+    assert ok, message
+    ok, message = add_note(str(database), "sw1", "unknown", "seen on the bench")
+    assert ok, message
+    ok, message = delete_one(str(database), "sw1")
+    assert ok, message
+    ok, _message, rows = list_inventory(str(database))
+    assert ok and rows == []
+    ok, message, payload = export_inventory(str(database))
+    assert ok and payload.startswith(b"{")
+    assert b"sw1" not in payload
+
+
+def test_explain_scope_does_not_require_a_target(tmp_path: pathlib.Path) -> None:
+    scope = tmp_path / "scope.toml"
+    scope.write_text(
+        'allow_cidrs = ["192.168.56.0/28"]\nallow_ports = [443]\nmax_hosts = 16\n',
+        encoding="utf-8",
+    )
+    ok, message = describe_scope(str(scope))
+    assert ok and "192.168.56.0/28" in message and "does not contact" in message
+    ok, message = save_one(str(tmp_path / "audit.db"), {"asset_id": "bad", "address": "switch.local"})
+    assert not ok and "hostname" in message
 
 
 def test_gui_refuses_research_tree(tmp_path: pathlib.Path) -> None:

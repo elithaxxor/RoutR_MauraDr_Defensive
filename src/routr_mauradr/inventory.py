@@ -168,6 +168,71 @@ def list_assets(db_path: Path) -> list[JSONObject]:
     return [dict(row) for row in rows]
 
 
+def save_asset(db_path: Path, asset: JSONObject) -> str:
+    """Insert or update one operator-supplied asset. Returns its id."""
+    if not isinstance(asset, dict):
+        raise InventoryError("asset must be an object")
+    prepared = _asset(dict(asset), set())
+    run_id = start_run(db_path, source="manual")
+    now = _now()
+    with open_inventory(db_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO assets (
+                asset_id, address, name, vendor, product, role, notes, updated_at, run_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(asset_id) DO UPDATE SET
+                address = excluded.address,
+                name = excluded.name,
+                vendor = excluded.vendor,
+                product = excluded.product,
+                role = excluded.role,
+                notes = excluded.notes,
+                updated_at = excluded.updated_at,
+                run_id = excluded.run_id
+            """,
+            (
+                prepared["asset_id"],
+                prepared["address"],
+                prepared.get("name"),
+                prepared.get("vendor"),
+                prepared.get("product"),
+                prepared.get("role"),
+                prepared.get("notes"),
+                now,
+                run_id,
+            ),
+        )
+    return str(prepared["asset_id"])
+
+
+def remove_asset(db_path: Path, asset_id: str) -> None:
+    """Delete one asset and the notes attached to it."""
+    ident = _id(asset_id, field="asset_id")
+    with open_inventory(db_path) as connection:
+        connection.execute("DELETE FROM observations WHERE asset_id = ?", (ident,))
+        cursor = connection.execute("DELETE FROM assets WHERE asset_id = ?", (ident,))
+        if cursor.rowcount != 1:
+            raise InventoryError(f"unknown asset: {ident}")
+
+
+def list_observations(db_path: Path, *, limit: int = 50) -> list[JSONObject]:
+    """Return the newest local notes. Does not include raw imports."""
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1 or limit > 200:
+        raise InventoryError("observation limit must be from 1 to 200")
+    with open_inventory(db_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT asset_id, source, status, summary, observed_at
+            FROM observations
+            ORDER BY observation_id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def record_findings(db_path: Path, run_id: str, findings: list[JSONObject]) -> int:
     """Store observations for an existing run. Raw snapshots are not retained."""
     if not isinstance(findings, list):
